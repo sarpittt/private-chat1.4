@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Private Instagram-style Chat</title>
+
+<style>
+body {
+  margin: 0;
+  background: #fafafa;
+  font-family: 'Helvetica Neue', sans-serif;
+}
+
+#login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+#login input {
+  margin: 5px 0;
+  padding: 10px;
+  width: 250px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+#login button {
+  margin-top: 10px;
+  padding: 10px;
+  width: 270px;
+  background: #3897f0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#chatBox {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+#header {
+  height: 60px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  padding: 0 15px;
+  font-weight: bold;
+  background: white;
+}
+
+#chat {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.msgRow {
+  display: flex;
+  margin: 5px 0;
+  align-items: flex-end;
+}
+
+.msgRow.left { justify-content: flex-start; }
+.msgRow.right { justify-content: flex-end; }
+
+.msg {
+  max-width: 60%;
+  padding: 10px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  line-height: 1.4;
+  position: relative;
+}
+
+.left .msg {
+  background: #f0f0f0;
+  color: black;
+  border-bottom-left-radius: 0;
+}
+
+.right .msg {
+  background: #3897f0;
+  color: white;
+  border-bottom-right-radius: 0;
+}
+
+.time {
+  font-size: 10px;
+  color: gray;
+  margin-top: 4px;
+  text-align: right;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  margin: 0 8px;
+}
+
+#msgInputContainer {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #ddd;
+  background: white;
+}
+
+#msg {
+  flex: 1;
+  padding: 10px 15px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  outline: none;
+}
+
+#sendBtn {
+  margin-left: 10px;
+  padding: 10px 15px;
+  border: none;
+  background: #3897f0;
+  color: white;
+  border-radius: 20px;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div id="login">
+  <h2>Private Chat Login</h2>
+  <input id="username" placeholder="Username">
+  <input id="password" type="password" placeholder="Password">
+  <button onclick="login()">Enter</button>
+</div>
+
+<div id="chatBox" style="display:none;">
+  <div id="header">Private Chat</div>
+  <div id="chat"></div>
+  <div id="msgInputContainer">
+    <input id="msg" placeholder="Type a message...">
+    <button id="sendBtn">Send</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyARUCHCwujTP07tfEdAtwmZPrPi9qEXL-A",
+  authDomain: "private-chat-e9047.firebaseapp.com",
+  databaseURL: "https://private-chat-e9047-default-rtdb.firebaseio.com",
+  projectId: "private-chat-e9047",
+  storageBucket: "private-chat-e9047.firebasestorage.app",
+  messagingSenderId: "782417310059",
+  appId: "1:782417310059:web:02725e537390bbc062dc2e"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const chat = document.getElementById("chat");
+const msg = document.getElementById("msg");
+const sendBtn = document.getElementById("sendBtn");
+
+const profiles = {
+  "AARU": "https://i.pravatar.cc/40?img=1",
+  "SIIDHI": "https://i.pravatar.cc/40?img=2"
+};
+
+let username = "";
+
+// Login function
+function login() {
+  let u = document.getElementById("username").value;
+  let p = document.getElementById("password").value;
+  if((u === "AARU" && p === "ARPIT@03052011") || (u === "SIIDHI" && p === "SIDDHI14042011")){
+    username = u;
+    document.getElementById("login").style.display="none";
+    document.getElementById("chatBox").style.display="flex";
+    msg.focus();
+  } else {
+    alert("Wrong username or password");
+  }
+}
+
+// Send message
+function sendMessage() {
+  if(msg.value.trim() === "") return;
+  db.ref("messages").push({
+    name: username,
+    text: msg.value,
+    time: Date.now(),
+    seen: false
+  });
+  msg.value = "";
+}
+
+sendBtn.addEventListener("click", sendMessage);
+msg.addEventListener("keypress", function(e){
+  if(e.key === "Enter") sendMessage();
+});
+
+// Listen for messages
+db.ref("messages").on("child_added", function(data){
+  const message = data.val();
+  
+  // Mark unseen messages as seen only once
+  if(message.name !== username && !message.seen){
+    db.ref("messages/"+data.key).update({ seen:true });
+  }
+  
+  const side = message.name === username ? "right" : "left";
+  
+  const time = new Date(message.time);
+  let hours = time.getHours();
+  const minutes = time.getMinutes().toString().padStart(2,"0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  
+  let seenText = "";
+  if(message.name === username){
+    seenText = message.seen ? "✓✓ Seen" : "✓ Sent";
+  }
+  
+  const avatarHTML = side === "left" ? `<img src="${profiles[message.name]}" class="avatar">` : "";
+  
+  const msgHTML = `
+    <div class="msgRow ${side}">
+      ${avatarHTML}
+      <div class="msg ${side}">
+        ${message.text}
+        <div class="time">${hours}:${minutes} ${ampm} ${seenText}</div>
+      </div>
+    </div>
+  `;
+  
+  chat.innerHTML += msgHTML;
+  chat.scrollTop = chat.scrollHeight;
+});
+</script>
+</body>
+</html>
